@@ -1,0 +1,1153 @@
+import { useState, useEffect } from 'react'
+import './App.css'
+import { 
+  Bike, 
+  Package, 
+  Van, 
+  Search, 
+  Phone, 
+  Mail, 
+  MapPin, 
+  Users, 
+  MessageSquare, 
+  Star,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Send,
+  ArrowRight,
+  Heart,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Navigation
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { toast } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
+
+// Types
+interface BookingFormData {
+  customerName: string
+  contactNumber: string
+  email: string
+  pickupLocation: string
+  dropoffLocation: string
+  passengers: string
+  contactMethod: string
+  notes: string
+}
+
+interface DeliveryFormData {
+  customerName: string
+  contactNumber: string
+  email: string
+  pickupLocation: string
+  deliveryLocation: string
+  itemDescription: string
+  itemWeight: string
+  contactMethod: string
+  notes: string
+}
+
+interface BookingStatus {
+  reference: string
+  status: 'pending' | 'assigned' | 'in-progress' | 'completed' | 'cancelled'
+  driverName?: string
+  plateNumber?: string
+  driverContact?: string
+  bookingDate: string
+  pickupLocation: string
+  dropoffLocation: string
+}
+
+// Google Sheets Configuration - Replace with your deployed script URL
+// const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'
+
+// Generate booking reference
+const generateReference = () => {
+  const prefix = 'SIQ'
+  const timestamp = Date.now().toString(36).toUpperCase()
+  const random = Math.random().toString(36).substring(2, 5).toUpperCase()
+  return `${prefix}-${timestamp}-${random}`
+}
+
+// Initial form states
+const initialPedicabForm: BookingFormData = {
+  customerName: '',
+  contactNumber: '',
+  email: '',
+  pickupLocation: '',
+  dropoffLocation: '',
+  passengers: '1',
+  contactMethod: '',
+  notes: ''
+}
+
+const initialDeliveryForm: DeliveryFormData = {
+  customerName: '',
+  contactNumber: '',
+  email: '',
+  pickupLocation: '',
+  deliveryLocation: '',
+  itemDescription: '',
+  itemWeight: '',
+  contactMethod: '',
+  notes: ''
+}
+
+function App() {
+  // State
+  const [activeTab, setActiveTab] = useState<'home' | 'pedicab' | 'delivery' | 'track'>('home')
+  const [pedicabForm, setPedicabForm] = useState<BookingFormData>(initialPedicabForm)
+  const [deliveryForm, setDeliveryForm] = useState<DeliveryFormData>(initialDeliveryForm)
+  const [trackingReference, setTrackingReference] = useState('')
+  const [trackingResult, setTrackingResult] = useState<BookingStatus | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [lastReference, setLastReference] = useState('')
+  const [showNotice, setShowNotice] = useState(true)
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
+
+  // Scroll to top on tab change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [activeTab])
+
+  // Submit booking to Google Sheets
+  const submitToGoogleSheets = async (data: any, type: 'pedicab' | 'delivery') => {
+    try {
+      // For now, simulate the submission
+      // In production, replace with actual Google Sheets API call
+      console.log('Submitting to Google Sheets:', { ...data, type })
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      // Store in localStorage for demo purposes
+      const bookings = JSON.parse(localStorage.getItem('siquijor_bookings') || '[]')
+      bookings.push({
+        ...data,
+        type,
+        submittedAt: new Date().toISOString()
+      })
+      localStorage.setItem('siquijor_bookings', JSON.stringify(bookings))
+      
+      return true
+    } catch (error) {
+      console.error('Submission error:', error)
+      return false
+    }
+  }
+
+  // Handle pedicab booking submit
+  const handlePedicabSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Validation
+    if (!pedicabForm.customerName || !pedicabForm.contactNumber || !pedicabForm.pickupLocation || !pedicabForm.dropoffLocation) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    setIsSubmitting(true)
+    const reference = generateReference()
+    
+    const success = await submitToGoogleSheets({
+      ...pedicabForm,
+      reference,
+      status: 'pending',
+      bookingDate: new Date().toLocaleString()
+    }, 'pedicab')
+
+    setIsSubmitting(false)
+    
+    if (success) {
+      setLastReference(reference)
+      setShowSuccessModal(true)
+      setPedicabForm(initialPedicabForm)
+      toast.success('Booking submitted successfully!')
+    } else {
+      toast.error('Failed to submit booking. Please try again.')
+    }
+  }
+
+  // Handle delivery booking submit
+  const handleDeliverySubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Validation
+    if (!deliveryForm.customerName || !deliveryForm.contactNumber || !deliveryForm.pickupLocation || !deliveryForm.deliveryLocation || !deliveryForm.itemDescription) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    setIsSubmitting(true)
+    const reference = generateReference()
+    
+    const success = await submitToGoogleSheets({
+      ...deliveryForm,
+      reference,
+      status: 'pending',
+      bookingDate: new Date().toLocaleString()
+    }, 'delivery')
+
+    setIsSubmitting(false)
+    
+    if (success) {
+      setLastReference(reference)
+      setShowSuccessModal(true)
+      setDeliveryForm(initialDeliveryForm)
+      toast.success('Delivery booking submitted successfully!')
+    } else {
+      toast.error('Failed to submit booking. Please try again.')
+    }
+  }
+
+  // Handle tracking
+  const handleTrackBooking = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!trackingReference.trim()) {
+      toast.error('Please enter a booking reference')
+      return
+    }
+
+    // For demo, check localStorage
+    const bookings = JSON.parse(localStorage.getItem('siquijor_bookings') || '[]')
+    const booking = bookings.find((b: any) => b.reference === trackingReference.toUpperCase())
+
+    if (booking) {
+      setTrackingResult({
+        reference: booking.reference,
+        status: booking.status || 'pending',
+        driverName: booking.driverName,
+        plateNumber: booking.plateNumber,
+        driverContact: booking.driverContact,
+        bookingDate: booking.bookingDate,
+        pickupLocation: booking.pickupLocation,
+        dropoffLocation: booking.dropoffLocation || booking.deliveryLocation
+      })
+    } else {
+      // Demo data for testing
+      if (trackingReference.toUpperCase().startsWith('SIQ-')) {
+        setTrackingResult({
+          reference: trackingReference.toUpperCase(),
+          status: 'pending',
+          bookingDate: new Date().toLocaleString(),
+          pickupLocation: 'Siquijor Port',
+          dropoffLocation: 'San Juan Beach'
+        })
+      } else {
+        setTrackingResult(null)
+        toast.error('Booking not found. Please check your reference number.')
+      }
+    }
+  }
+
+  // Get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-500'
+      case 'assigned': return 'bg-blue-500'
+      case 'in-progress': return 'bg-orange-500'
+      case 'completed': return 'bg-green-500'
+      case 'cancelled': return 'bg-red-500'
+      default: return 'bg-gray-500'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Pending - Waiting for driver'
+      case 'assigned': return 'Driver Assigned'
+      case 'in-progress': return 'In Progress'
+      case 'completed': return 'Completed'
+      case 'cancelled': return 'Cancelled'
+      default: return 'Unknown'
+    }
+  }
+
+  // FAQ Data
+  const faqs = [
+    {
+      question: 'How do I book a pedicab?',
+      answer: 'Simply click "Book a Pedicab", fill in your details including pickup and dropoff locations, and submit. You will receive a booking reference number to track your ride.'
+    },
+    {
+      question: 'What areas do you service?',
+      answer: 'Currently, our pedicab service is available for trips to and from Siquijor Port only. We are working to expand our routes soon!'
+    },
+    {
+      question: 'How can I track my booking?',
+      answer: 'Use the "Track Booking" feature and enter your booking reference number. You can see the status: Pending, Driver Assigned, In Progress, or Completed.'
+    },
+    {
+      question: 'What are your operating hours?',
+      answer: 'We operate daily from 6:00 AM to 8:00 PM. For emergency bookings outside these hours, please call our hotline.'
+    },
+    {
+      question: 'How do I contact my driver?',
+      answer: 'Once a driver is assigned, their name, plate number, and contact number will appear in your booking status. You can call or message them directly.'
+    }
+  ]
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-teal-50 via-cyan-50 to-blue-50">
+      <Toaster position="top-center" />
+      
+      {/* Notice Banner */}
+      {showNotice && (
+        <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white px-4 py-3 relative animate-fade-in">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              <p className="text-sm font-medium">
+                Pedicab service available only for: Siquijor Port ↔ Destination routes
+              </p>
+            </div>
+            <button 
+              onClick={() => setShowNotice(false)}
+              className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="sticky top-0 z-50 glass border-b border-teal-100">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => setActiveTab('home')}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-full flex items-center justify-center">
+                <Bike className="w-6 h-6 text-white" />
+              </div>
+              <div className="text-left">
+                <h1 className="font-bold text-teal-800 text-lg leading-tight">Siquijor</h1>
+                <p className="text-xs text-teal-600">Pedicab & Deliveries</p>
+              </div>
+            </button>
+            
+            <div className="hidden md:flex items-center gap-6">
+              <button 
+                onClick={() => setActiveTab('home')}
+                className={`text-sm font-medium transition-colors ${activeTab === 'home' ? 'text-teal-600' : 'text-gray-600 hover:text-teal-600'}`}
+              >
+                Home
+              </button>
+              <button 
+                onClick={() => setActiveTab('pedicab')}
+                className={`text-sm font-medium transition-colors ${activeTab === 'pedicab' ? 'text-teal-600' : 'text-gray-600 hover:text-teal-600'}`}
+              >
+                Book Pedicab
+              </button>
+              <button 
+                onClick={() => setActiveTab('delivery')}
+                className={`text-sm font-medium transition-colors ${activeTab === 'delivery' ? 'text-teal-600' : 'text-gray-600 hover:text-teal-600'}`}
+              >
+                Delivery
+              </button>
+              <button 
+                onClick={() => setActiveTab('track')}
+                className={`text-sm font-medium transition-colors ${activeTab === 'track' ? 'text-teal-600' : 'text-gray-600 hover:text-teal-600'}`}
+              >
+                Track Booking
+              </button>
+            </div>
+
+            <Button 
+              onClick={() => setActiveTab('track')}
+              className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white btn-tropical"
+            >
+              <Search className="w-4 h-4 mr-2" />
+              Track
+            </Button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        
+        {/* HOME TAB */}
+        {activeTab === 'home' && (
+          <div className="space-y-12 animate-fade-in">
+            {/* Hero Section */}
+            <section className="relative rounded-3xl overflow-hidden">
+              <div className="absolute inset-0">
+                <img 
+                  src="/images/siquijor-sunset.jpg" 
+                  alt="Siquijor Sunset" 
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
+              </div>
+              <div className="relative z-10 py-16 md:py-24 px-8 md:px-16">
+                <div className="max-w-xl">
+                  <Badge className="bg-orange-500 text-white mb-4">
+                    <Star className="w-3 h-3 mr-1" />
+                    Trusted Local Service
+                  </Badge>
+                  <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">
+                    Explore Siquijor <br />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-cyan-300">
+                      Hassle-Free!
+                    </span>
+                  </h2>
+                  <p className="text-white/90 text-lg mb-8">
+                    Book pedicabs, schedule deliveries, and rent vans with ease. 
+                    Your trusted transportation partner in Siquijor Island.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    <Button 
+                      onClick={() => setActiveTab('pedicab')}
+                      className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white btn-tropical text-lg px-8 py-6"
+                    >
+                      <Bike className="w-5 h-5 mr-2" />
+                      Book a Pedicab
+                    </Button>
+                    <Button 
+                      onClick={() => setActiveTab('delivery')}
+                      variant="outline"
+                      className="border-white text-white hover:bg-white/20 btn-tropical text-lg px-8 py-6"
+                    >
+                      <Package className="w-5 h-5 mr-2" />
+                      Book Delivery
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Service Cards */}
+            <section>
+              <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Our Services</h3>
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* Pedicab Card */}
+                <Card className="group hover:shadow-2xl transition-all duration-300 border-0 shadow-lg overflow-hidden">
+                  <div className="h-48 overflow-hidden">
+                    <img 
+                      src="/images/tricycle-tour.jpg" 
+                      alt="Pedicab Service" 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  </div>
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center mb-4">
+                      <Bike className="w-6 h-6 text-teal-600" />
+                    </div>
+                    <h4 className="text-xl font-bold text-gray-800 mb-2">Pedicab Rides</h4>
+                    <p className="text-gray-600 mb-4">
+                      Quick and affordable rides around Siquijor. Perfect for tourists and locals alike.
+                    </p>
+                    <Button 
+                      onClick={() => setActiveTab('pedicab')}
+                      className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+                    >
+                      Book Now
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Delivery Card */}
+                <Card className="group hover:shadow-2xl transition-all duration-300 border-0 shadow-lg overflow-hidden">
+                  <div className="h-48 overflow-hidden">
+                    <img 
+                      src="/images/siquijor-beach.jpg" 
+                      alt="Delivery Service" 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  </div>
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center mb-4">
+                      <Package className="w-6 h-6 text-cyan-600" />
+                    </div>
+                    <h4 className="text-xl font-bold text-gray-800 mb-2">Package Delivery</h4>
+                    <p className="text-gray-600 mb-4">
+                      Reliable delivery service for your packages, documents, and goods across the island.
+                    </p>
+                    <Button 
+                      onClick={() => setActiveTab('delivery')}
+                      className="w-full bg-cyan-500 hover:bg-cyan-600 text-white"
+                    >
+                      Book Delivery
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Van Rental Card */}
+                <Card className="group hover:shadow-2xl transition-all duration-300 border-0 shadow-lg overflow-hidden opacity-75">
+                  <div className="h-48 overflow-hidden relative">
+                    <img 
+                      src="/images/siquijor-swing.jpg" 
+                      alt="Van Rental" 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Badge className="bg-orange-500 text-white">Coming Soon</Badge>
+                    </div>
+                  </div>
+                  <CardContent className="p-6">
+                    <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-4">
+                      <Van className="w-6 h-6 text-orange-600" />
+                    </div>
+                    <h4 className="text-xl font-bold text-gray-800 mb-2">Van Rental</h4>
+                    <p className="text-gray-600 mb-4">
+                      Comfortable van rentals for groups, tours, and special occasions. Coming soon!
+                    </p>
+                    <Button 
+                      disabled
+                      className="w-full bg-gray-400 cursor-not-allowed"
+                    >
+                      Coming Soon
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+
+            {/* How It Works */}
+            <section className="bg-white rounded-3xl p-8 md:p-12 shadow-lg">
+              <h3 className="text-2xl font-bold text-gray-800 mb-8 text-center">How It Works</h3>
+              <div className="grid md:grid-cols-4 gap-8">
+                {[
+                  { icon: Search, title: '1. Book', desc: 'Fill in your details and submit your booking' },
+                  { icon: Clock, title: '2. Wait', desc: 'We will assign a driver to your booking' },
+                  { icon: Navigation, title: '3. Track', desc: 'Monitor your booking status in real-time' },
+                  { icon: CheckCircle, title: '4. Enjoy', desc: 'Your driver arrives and takes you to your destination' }
+                ].map((step, index) => (
+                  <div key={index} className="text-center">
+                    <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                      <step.icon className="w-8 h-8 text-white" />
+                    </div>
+                    <h4 className="font-bold text-gray-800 mb-2">{step.title}</h4>
+                    <p className="text-gray-600 text-sm">{step.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* FAQ Section */}
+            <section>
+              <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">Frequently Asked Questions</h3>
+              <div className="max-w-3xl mx-auto space-y-4">
+                {faqs.map((faq, index) => (
+                  <div 
+                    key={index}
+                    className="bg-white rounded-xl shadow-md overflow-hidden"
+                  >
+                    <button
+                      onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+                      className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="font-medium text-gray-800">{faq.question}</span>
+                      {expandedFaq === index ? (
+                        <ChevronUp className="w-5 h-5 text-teal-600" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {expandedFaq === index && (
+                      <div className="px-6 pb-4 text-gray-600 animate-slide-up">
+                        {faq.answer}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Contact Section */}
+            <section className="bg-gradient-to-r from-teal-500 to-cyan-600 rounded-3xl p-8 md:p-12 text-white">
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-bold mb-2">Need Help?</h3>
+                <p className="text-white/80">Our team is here to assist you 24/7</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-8">
+                <a 
+                  href="tel:09652367470"
+                  className="flex items-center gap-3 bg-white/20 hover:bg-white/30 rounded-xl px-6 py-4 transition-colors"
+                >
+                  <Phone className="w-6 h-6" />
+                  <div>
+                    <p className="text-sm text-white/70">Call Us</p>
+                    <p className="font-bold">0965 236 7470</p>
+                  </div>
+                </a>
+                <a 
+                  href="mailto:siquijorpedicab@gmail.com"
+                  className="flex items-center gap-3 bg-white/20 hover:bg-white/30 rounded-xl px-6 py-4 transition-colors"
+                >
+                  <Mail className="w-6 h-6" />
+                  <div>
+                    <p className="text-sm text-white/70">Email Us</p>
+                    <p className="font-bold">siquijorpedicab@gmail.com</p>
+                  </div>
+                </a>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* PEDICAB BOOKING TAB */}
+        {activeTab === 'pedicab' && (
+          <div className="max-w-2xl mx-auto animate-slide-up">
+            <Button 
+              variant="ghost" 
+              onClick={() => setActiveTab('home')}
+              className="mb-4 text-gray-600"
+            >
+              ← Back to Home
+            </Button>
+            
+            <Card className="shadow-2xl border-0 overflow-hidden">
+              <div className="h-32 bg-gradient-to-r from-teal-500 to-cyan-600 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <Bike className="w-12 h-12 mx-auto mb-2" />
+                  <h2 className="text-2xl font-bold">Book a Pedicab</h2>
+                  <p className="text-white/80">Quick rides around Siquijor</p>
+                </div>
+              </div>
+              
+              <CardContent className="p-8">
+                <form onSubmit={handlePedicabSubmit} className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="pedicab-name">
+                        Customer Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="pedicab-name"
+                        value={pedicabForm.customerName}
+                        onChange={(e) => setPedicabForm({...pedicabForm, customerName: e.target.value})}
+                        placeholder="Juan Dela Cruz"
+                        className="border-teal-200 focus:border-teal-500"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="pedicab-contact">
+                        Contact Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="pedicab-contact"
+                        value={pedicabForm.contactNumber}
+                        onChange={(e) => setPedicabForm({...pedicabForm, contactNumber: e.target.value})}
+                        placeholder="09XX XXX XXXX"
+                        className="border-teal-200 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pedicab-email">Email Address</Label>
+                    <Input
+                      id="pedicab-email"
+                      type="email"
+                      value={pedicabForm.email}
+                      onChange={(e) => setPedicabForm({...pedicabForm, email: e.target.value})}
+                      placeholder="juan@example.com"
+                      className="border-teal-200 focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="pedicab-pickup">
+                        <MapPin className="w-4 h-4 inline mr-1" />
+                        Pickup Location <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="pedicab-pickup"
+                        value={pedicabForm.pickupLocation}
+                        onChange={(e) => setPedicabForm({...pedicabForm, pickupLocation: e.target.value})}
+                        placeholder="Siquijor Port, Hotel name, etc."
+                        className="border-teal-200 focus:border-teal-500"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="pedicab-dropoff">
+                        <MapPin className="w-4 h-4 inline mr-1" />
+                        Dropoff Location <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="pedicab-dropoff"
+                        value={pedicabForm.dropoffLocation}
+                        onChange={(e) => setPedicabForm({...pedicabForm, dropoffLocation: e.target.value})}
+                        placeholder="Destination address"
+                        className="border-teal-200 focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="pedicab-passengers">
+                        <Users className="w-4 h-4 inline mr-1" />
+                        Number of Passengers
+                      </Label>
+                      <Select
+                        value={pedicabForm.passengers}
+                        onValueChange={(value) => setPedicabForm({...pedicabForm, passengers: value})}
+                      >
+                        <SelectTrigger className="border-teal-200">
+                          <SelectValue placeholder="Select passengers" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4].map((num) => (
+                            <SelectItem key={num} value={num.toString()}>
+                              {num} {num === 1 ? 'Passenger' : 'Passengers'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="pedicab-contact-method">
+                        <MessageSquare className="w-4 h-4 inline mr-1" />
+                        Preferred Contact Method
+                      </Label>
+                      <Select
+                        value={pedicabForm.contactMethod}
+                        onValueChange={(value) => setPedicabForm({...pedicabForm, contactMethod: value})}
+                      >
+                        <SelectTrigger className="border-teal-200">
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="call">Phone Call</SelectItem>
+                          <SelectItem value="sms">SMS/Text</SelectItem>
+                          <SelectItem value="viber">Viber</SelectItem>
+                          <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pedicab-notes">Additional Notes (Optional)</Label>
+                    <Textarea
+                      id="pedicab-notes"
+                      value={pedicabForm.notes}
+                      onChange={(e) => setPedicabForm({...pedicabForm, notes: e.target.value})}
+                      placeholder="Any special requests, landmarks, etc."
+                      className="border-teal-200 focus:border-teal-500 min-h-[100px]"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white btn-tropical py-6 text-lg"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5 mr-2" />
+                        Book Pedicab
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* DELIVERY BOOKING TAB */}
+        {activeTab === 'delivery' && (
+          <div className="max-w-2xl mx-auto animate-slide-up">
+            <Button 
+              variant="ghost" 
+              onClick={() => setActiveTab('home')}
+              className="mb-4 text-gray-600"
+            >
+              ← Back to Home
+            </Button>
+            
+            <Card className="shadow-2xl border-0 overflow-hidden">
+              <div className="h-32 bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <Package className="w-12 h-12 mx-auto mb-2" />
+                  <h2 className="text-2xl font-bold">Book a Delivery</h2>
+                  <p className="text-white/80">Fast & reliable package delivery</p>
+                </div>
+              </div>
+              
+              <CardContent className="p-8">
+                <form onSubmit={handleDeliverySubmit} className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="delivery-name">
+                        Customer Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="delivery-name"
+                        value={deliveryForm.customerName}
+                        onChange={(e) => setDeliveryForm({...deliveryForm, customerName: e.target.value})}
+                        placeholder="Juan Dela Cruz"
+                        className="border-cyan-200 focus:border-cyan-500"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="delivery-contact">
+                        Contact Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="delivery-contact"
+                        value={deliveryForm.contactNumber}
+                        onChange={(e) => setDeliveryForm({...deliveryForm, contactNumber: e.target.value})}
+                        placeholder="09XX XXX XXXX"
+                        className="border-cyan-200 focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="delivery-email">Email Address</Label>
+                    <Input
+                      id="delivery-email"
+                      type="email"
+                      value={deliveryForm.email}
+                      onChange={(e) => setDeliveryForm({...deliveryForm, email: e.target.value})}
+                      placeholder="juan@example.com"
+                      className="border-cyan-200 focus:border-cyan-500"
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="delivery-pickup">
+                        <MapPin className="w-4 h-4 inline mr-1" />
+                        Pickup Location <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="delivery-pickup"
+                        value={deliveryForm.pickupLocation}
+                        onChange={(e) => setDeliveryForm({...deliveryForm, pickupLocation: e.target.value})}
+                        placeholder="Where to pick up the item"
+                        className="border-cyan-200 focus:border-cyan-500"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="delivery-location">
+                        <MapPin className="w-4 h-4 inline mr-1" />
+                        Delivery Location <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="delivery-location"
+                        value={deliveryForm.deliveryLocation}
+                        onChange={(e) => setDeliveryForm({...deliveryForm, deliveryLocation: e.target.value})}
+                        placeholder="Where to deliver the item"
+                        className="border-cyan-200 focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="delivery-item">
+                      <Package className="w-4 h-4 inline mr-1" />
+                      Item Description <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="delivery-item"
+                      value={deliveryForm.itemDescription}
+                      onChange={(e) => setDeliveryForm({...deliveryForm, itemDescription: e.target.value})}
+                      placeholder="Describe the item(s) to be delivered"
+                      className="border-cyan-200 focus:border-cyan-500 min-h-[80px]"
+                    />
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="delivery-weight">Estimated Weight</Label>
+                      <Select
+                        value={deliveryForm.itemWeight}
+                        onValueChange={(value) => setDeliveryForm({...deliveryForm, itemWeight: value})}
+                      >
+                        <SelectTrigger className="border-cyan-200">
+                          <SelectValue placeholder="Select weight" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="light">Light (under 5kg)</SelectItem>
+                          <SelectItem value="medium">Medium (5-15kg)</SelectItem>
+                          <SelectItem value="heavy">Heavy (15-30kg)</SelectItem>
+                          <SelectItem value="very-heavy">Very Heavy (30kg+)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="delivery-contact-method">
+                        <MessageSquare className="w-4 h-4 inline mr-1" />
+                        Preferred Contact Method
+                      </Label>
+                      <Select
+                        value={deliveryForm.contactMethod}
+                        onValueChange={(value) => setDeliveryForm({...deliveryForm, contactMethod: value})}
+                      >
+                        <SelectTrigger className="border-cyan-200">
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="call">Phone Call</SelectItem>
+                          <SelectItem value="sms">SMS/Text</SelectItem>
+                          <SelectItem value="viber">Viber</SelectItem>
+                          <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="delivery-notes">Additional Notes (Optional)</Label>
+                    <Textarea
+                      id="delivery-notes"
+                      value={deliveryForm.notes}
+                      onChange={(e) => setDeliveryForm({...deliveryForm, notes: e.target.value})}
+                      placeholder="Fragile items, delivery instructions, etc."
+                      className="border-cyan-200 focus:border-cyan-500 min-h-[100px]"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white btn-tropical py-6 text-lg"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-5 h-5 mr-2" />
+                        Book Delivery
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* TRACKING TAB */}
+        {activeTab === 'track' && (
+          <div className="max-w-2xl mx-auto animate-slide-up">
+            <Button 
+              variant="ghost" 
+              onClick={() => setActiveTab('home')}
+              className="mb-4 text-gray-600"
+            >
+              ← Back to Home
+            </Button>
+            
+            <Card className="shadow-2xl border-0 overflow-hidden">
+              <div className="h-32 bg-gradient-to-r from-orange-400 to-pink-500 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <Search className="w-12 h-12 mx-auto mb-2" />
+                  <h2 className="text-2xl font-bold">Track Your Booking</h2>
+                  <p className="text-white/80">Check your ride or delivery status</p>
+                </div>
+              </div>
+              
+              <CardContent className="p-8">
+                <form onSubmit={handleTrackBooking} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="tracking-ref">
+                      Booking Reference Number <span className="text-red-500">*</span>
+                    </Label>
+                    <div className="flex gap-3">
+                      <Input
+                        id="tracking-ref"
+                        value={trackingReference}
+                        onChange={(e) => setTrackingReference(e.target.value)}
+                        placeholder="SIQ-XXXXXXXX-XXX"
+                        className="border-orange-200 focus:border-orange-500 uppercase"
+                      />
+                      <Button
+                        type="submit"
+                        className="bg-gradient-to-r from-orange-400 to-pink-500 hover:from-orange-500 hover:to-pink-600 text-white btn-tropical px-8"
+                      >
+                        <Search className="w-5 h-5" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      Enter the reference number you received when booking
+                    </p>
+                  </div>
+                </form>
+
+                {/* Tracking Result */}
+                {trackingResult && (
+                  <div className="mt-8 animate-slide-up">
+                    <Separator className="mb-6" />
+                    <h3 className="text-lg font-bold text-gray-800 mb-4">Booking Details</h3>
+                    
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Reference</span>
+                        <span className="font-mono font-bold text-lg">{trackingResult.reference}</span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Status</span>
+                        <Badge className={`${getStatusColor(trackingResult.status)} text-white px-3 py-1`}>
+                          {getStatusText(trackingResult.status)}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Booking Date</span>
+                        <span>{trackingResult.bookingDate}</span>
+                      </div>
+
+                      <Separator />
+
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-5 h-5 text-teal-600 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-gray-500">From</p>
+                            <p className="font-medium">{trackingResult.pickupLocation}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-5 h-5 text-cyan-600 mt-0.5" />
+                          <div>
+                            <p className="text-sm text-gray-500">To</p>
+                            <p className="font-medium">{trackingResult.dropoffLocation}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {trackingResult.driverName && (
+                        <>
+                          <Separator />
+                          <div className="bg-teal-50 rounded-xl p-4">
+                            <h4 className="font-bold text-teal-800 mb-3">Driver Information</h4>
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Users className="w-4 h-4 text-teal-600" />
+                                <span className="font-medium">{trackingResult.driverName}</span>
+                              </div>
+                              {trackingResult.plateNumber && (
+                                <div className="flex items-center gap-2">
+                                  <Bike className="w-4 h-4 text-teal-600" />
+                                  <span>Plate: {trackingResult.plateNumber}</span>
+                                </div>
+                              )}
+                              {trackingResult.driverContact && (
+                                <a 
+                                  href={`tel:${trackingResult.driverContact}`}
+                                  className="flex items-center gap-2 text-teal-600 hover:text-teal-700"
+                                >
+                                  <Phone className="w-4 h-4" />
+                                  <span>{trackingResult.driverContact}</span>
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-gradient-to-r from-teal-700 to-cyan-800 text-white py-8 mt-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Bike className="w-6 h-6" />
+              <span className="font-bold">Siquijor Pedicab and Deliveries</span>
+            </div>
+            <p className="text-white/70 text-sm">
+              Biyahe ug delivery? Sayon ra kaayo!
+            </p>
+            <p className="text-white/50 text-sm">
+              Created with <Heart className="w-4 h-4 inline text-red-400" /> by Joshua Guirjen
+            </p>
+          </div>
+        </div>
+      </footer>
+
+      {/* Success Modal */}
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <DialogTitle className="text-center text-xl">Booking Submitted!</DialogTitle>
+            <DialogDescription className="text-center">
+              Your booking has been received and is being processed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-gray-50 rounded-xl p-4 text-center">
+            <p className="text-sm text-gray-600 mb-2">Your Booking Reference</p>
+            <p className="text-2xl font-mono font-bold text-teal-600">{lastReference}</p>
+          </div>
+          <div className="text-sm text-gray-600 space-y-2">
+            <p>Please save this reference number to track your booking status.</p>
+            <p>You will be contacted shortly once a driver is assigned.</p>
+          </div>
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => {
+                setShowSuccessModal(false)
+                setActiveTab('track')
+                setTrackingReference(lastReference)
+              }}
+              className="flex-1 bg-gradient-to-r from-teal-500 to-cyan-600 text-white"
+            >
+              <Search className="w-4 h-4 mr-2" />
+              Track Now
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => setShowSuccessModal(false)}
+              className="flex-1"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+export default App
